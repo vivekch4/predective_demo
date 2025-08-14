@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Motor Failure Prediction Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.1/plotly.min.js"></script>
+    <style>
+         * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            padding: 30px;
+        }
+        
+        .input-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .predict-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .predict-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .prediction-result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .high-risk {
+            background: #fee;
+            color: #d63384;
+            border: 2px solid #f5c2c7;
+        }
+        
+        .low-risk {
+            background: #d1e7dd;
+            color: #0f5132;
+            border: 2px solid #a3cfbb;
+        }
+        
+        .charts-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 30px;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .clear-btn {
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .no-data-message {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Motor Failure Prediction Dashboard</h1>
+            <p>Real-time predictive maintenance monitoring system</p>
+        </div>
+        
+        {% if total_predictions > 0 %}
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value">{{ total_predictions }}</div>
+                <div class="stat-label">Total Predictions</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ risk_percentage }}%</div>
+                <div class="stat-label">Latest Risk</div>
+            </div>
+            <div class="stat-item">
+                <button class="clear-btn" onclick="clearHistory()">Clear History</button>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="main-content">
+            <div class="input-section">
+                <h2>📊 Input Parameters</h2>
+                <form method="POST" id="predictionForm">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="temperature">🌡️ Temperature (°C)</label>
+                        <input type="number" 
+                               id="temperature" 
+                               name="temperature" 
+                               step="0.1" 
+                               required 
+                               placeholder="Enter temperature">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vibration">📳 Vibration (mm/s)</label>
+                        <input type="number" 
+                               id="vibration" 
+                               name="vibration" 
+                               step="0.01" 
+                               required 
+                               placeholder="Enter vibration level">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="rpm">⚙️ RPM</label>
+                        <input type="number" 
+                               id="rpm" 
+                               name="rpm" 
+                               step="1" 
+                               required 
+                               placeholder="Enter RPM value">
+                    </div>
+                    
+                    <button type="submit" class="predict-btn">
+                        🔍 Analyze Risk
+                    </button>
+                </form>
+                
+                {% if prediction %}
+                <div class="prediction-result {% if 'HIGH' in prediction %}high-risk{% else %}low-risk{% endif %}">
+                    {{ prediction }}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="charts-section">
+                {% if gauge_chart %}
+                <div class="chart-container">
+                    <div id="gaugeChart"></div>
+                </div>
+                {% endif %}
+                
+                {% if risk_chart and param_chart %}
+                <div class="chart-container">
+                    <div id="riskChart"></div>
+                </div>
+                
+                <div class="chart-container">
+                    <div id="paramChart"></div>
+                </div>
+                {% else %}
+                <div class="no-data-message">
+                    📈 Charts will appear after making at least 2 predictions.<br>
+                    Start by entering motor parameters and clicking "Analyze Risk".
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Render charts if data is available
+        {% if gauge_chart %}
+        var gaugeData = {{ gauge_chart|safe }};
+        Plotly.newPlot('gaugeChart', gaugeData.data, gaugeData.layout);
+        {% endif %}
+        
+        {% if risk_chart %}
+        var riskData = {{ risk_chart|safe }};
+        Plotly.newPlot('riskChart', riskData.data, riskData.layout);
+        {% endif %}
+        
+        {% if param_chart %}
+        var paramData = {{ param_chart|safe }};
+        Plotly.newPlot('paramChart', paramData.data, paramData.layout);
+        {% endif %}
+        
+        // Clear history function
+        function clearHistory() {
+            if (confirm('Are you sure you want to clear all historical data?')) {
+                fetch("{% url 'clear_history' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        }
+        
+        // Auto-refresh charts every 30 seconds if form was submitted
+        {% if prediction %}
+        setTimeout(function() {
+            // Optional: Auto-refresh functionality
+        }, 30000);
+        {% endif %}
+    </script>
+</body>
+</html>
